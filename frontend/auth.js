@@ -139,7 +139,7 @@ async function loginWithGoogle() {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin + '/index.html'
+                redirectTo: window.location.origin + '/'
             }
         });
 
@@ -184,7 +184,7 @@ async function requireAuth() {
 
     if (!session) {
         console.log('Not authenticated, redirecting to login...');
-        window.location.href = '/login.html';
+        window.location.href = '/login';
         return false;
     }
 

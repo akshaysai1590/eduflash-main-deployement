@@ -342,7 +342,7 @@
         checkAuth().then(session => {
             if (session) {
                 console.log('Already logged in, redirecting...');
-                window.location.href = 'index.html';
+                window.location.href = '/';
             }
         });
 
@@ -436,7 +436,7 @@
                 await registerWithEmail(username, email, password);
                 console.log('✓ Registration successful, redirecting...');
                 alert('Account created successfully! You are now logged in.');
-                window.location.href = 'index.html';
+                window.location.href = '/';
             } catch (error) {
                 console.error('Registration failed:', error);
                 showError('formError', error.message || 'Registration failed. Please try again.');

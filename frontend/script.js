@@ -551,7 +551,7 @@ async function initializeApp() {
 
   if (!currentUser || !currentUsername) {
     console.error('Failed to get user info');
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return;
   }
 
@@ -564,7 +564,7 @@ async function initializeApp() {
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     try {
       await logout();
-      window.location.href = 'login.html';
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       alert('Failed to logout. Please try again.');

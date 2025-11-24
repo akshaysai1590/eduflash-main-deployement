@@ -276,7 +276,7 @@
     checkAuth().then(session => {
       if (session) {
         console.log('Already logged in, redirecting...');
-        window.location.href = 'index.html';
+        window.location.href = '/';
       }
     });
 
@@ -318,7 +318,7 @@
       try {
         await loginWithEmail(email, password);
         console.log('✓ Login successful, redirecting...');
-        window.location.href = 'index.html';
+        window.location.href = '/';
       } catch (error) {
         console.error('Login failed:', error);
         showError('formError', error.message || 'Login failed. Please check your credentials.');
