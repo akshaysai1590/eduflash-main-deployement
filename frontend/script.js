@@ -14,6 +14,15 @@ const TIMER_DURATION = 30;
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
+// Supabase configuration
+const SUPABASE_URL = 'https://ijemuvyqdyedffhfsplu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZW11dnlxZHllZGZmaGZzcGx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4OTExNTAsImV4cCI6MjA3OTQ2NzE1MH0.Dr9joyg67njUI_XnopQ4za6RqKXEAMpCbZN8LGrgJ9c';
+
+// Store current user info
+let currentUser = null;
+let currentUsername = null;
+let isInitialized = false; // Guard to prevent multiple initializations
+
 // Helper function to create a fetch with timeout
 function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
@@ -366,41 +375,47 @@ function nextQuestion() {
   fetchQuestion();
 }
 
-function finishQuiz() {
+async function finishQuiz() {
   console.log('🏁 Quiz finished. Final score:', state.score);
 
-  if (state.score > 0) {
-    document.getElementById('submitScoreSection').style.display = 'flex';
-    document.getElementById('playerName').focus();
+  // Auto-submit score with authenticated user
+  if (state.score > 0 && currentUser && currentUsername) {
+    await autoSubmitScore();
   }
 
   document.getElementById('questionSection').style.display = 'none';
   document.getElementById('startSection').style.display = 'block';
   stopTimer();
 
-  alert(`Quiz finished!\n\nFinal Score: ${state.score}\nRounds: ${state.rounds}\nAccuracy: ${Math.round((state.correct / state.rounds) * 100)}%`);
+  alert(`Quiz finished!\n\nFinal Score: ${state.score}\nRounds: ${state.rounds}\nAccuracy: ${Math.round((state.correct / state.rounds) * 100)}%\n\nYour score has been added to the leaderboard!`);
 }
 
-async function submitScore() {
-  const nameInput = document.getElementById('playerName');
-  const name = nameInput.value.trim();
-
-  if (!name) {
-    alert('Please enter your name');
-    return;
-  }
-
-  // Validate name length
-  if (name.length > 50) {
-    alert('Name must be 50 characters or less');
+// Auto-submit score with authenticated user (no manual input needed)
+async function autoSubmitScore() {
+  if (!currentUser || !currentUsername) {
+    console.error('Cannot submit score: user not authenticated');
     return;
   }
 
   try {
+    // Get auth session to include in request
+    const session = await checkAuth();
+
+    if (!session) {
+      console.error('No active session');
+      return;
+    }
+
     const response = await fetchWithTimeout(`${API_BASE}/api/leaderboard`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score: state.score })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        score: state.score,
+        // Username and user_id will be extracted from JWT token on backend
+      })
     });
 
     if (!response.ok) {
@@ -411,26 +426,20 @@ async function submitScore() {
 
     const result = await response.json();
 
-    console.log('✓ Score submitted to leaderboard');
-    alert('Score submitted successfully!');
-    nameInput.value = '';
-    document.getElementById('submitScoreSection').style.display = 'none';
-
+    console.log('✓ Score auto-submitted to leaderboard');
     loadLeaderboard();
   } catch (error) {
-    console.error('Error submitting score:', error);
-
-    let errorMessage = 'Failed to submit score. ';
-    if (error.name === 'AbortError' || error.message.includes('timeout')) {
-      errorMessage += 'The request timed out. Please try again.';
-    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      errorMessage += 'Unable to connect to the server. Please check your connection.';
-    } else {
-      errorMessage += error.message || 'Please try again.';
-    }
-
-    alert(errorMessage);
+    console.error('Error auto-submitting score:', error);
+    // Don't alert user - this happens automatically in background
   }
+}
+
+// Legacy manual submit function (deprecated - kept for compatibility)
+async function submitScore() {
+  // This function is no longer used with authentication
+  // Scores are automatically submitted when quiz finishes
+  console.log('Manual score submission is deprecated with authentication');
+  await autoSubmitScore();
 }
 
 async function loadLeaderboard() {
@@ -515,14 +524,60 @@ function escapeHtml(text) {
 }
 
 // Wait for DOM to be fully loaded before initializing
-function initializeApp() {
+async function initializeApp() {
+  // Prevent multiple initializations using global window flag
+  if (window.isInitialized) {
+    console.log('App already initialized, skipping...');
+    return;
+  }
+
+  window.isInitialized = true;
+  console.log('Initializing EduFlash app...');
+
+  // Initialize Supabase authentication
+  initAuth(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Check if user is authenticated
+  const authRequired = await requireAuth();
+
+  if (!authRequired) {
+    // User will be redirected to login by requireAuth()
+    return;
+  }
+
+  // Get current user info
+  currentUser = await getCurrentUser();
+  currentUsername = await getUsername();
+
+  if (!currentUser || !currentUsername) {
+    console.error('Failed to get user info');
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Display username in header
+  document.getElementById('userDisplay').textContent = currentUsername;
+
+  console.log('✓ Logged in as:', currentUsername);
+
+  // Setup logout button
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try {
+      await logout();
+      window.location.href = 'login.html';
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Failed to logout. Please try again.');
+    }
+  });
+
   // Verify all required elements exist
   const requiredElements = [
-    'startBtn', 'nextBtn', 'finishBtn', 'submitScoreBtn',
+    'startBtn', 'nextBtn', 'finishBtn',
     'scoreDisplay', 'roundsDisplay', 'accuracyDisplay',
     'questionSection', 'startSection', 'resultSection',
     'optionsContainer', 'questionText', 'questionNumber',
-    'leaderboardList', 'playerName'
+    'leaderboardList'
   ];
 
   const missingElements = requiredElements.filter(id => !document.getElementById(id));
@@ -537,7 +592,6 @@ function initializeApp() {
   document.getElementById('startBtn').addEventListener('click', startQuiz);
   document.getElementById('nextBtn').addEventListener('click', nextQuestion);
   document.getElementById('finishBtn').addEventListener('click', finishQuiz);
-  document.getElementById('submitScoreBtn').addEventListener('click', submitScore);
 
   setupTopicSelector();
   loadProgress();

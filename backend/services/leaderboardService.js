@@ -9,8 +9,9 @@ const supabase = require('./supabase');
  * Add a score to the leaderboard
  * @param {string} name - Player name
  * @param {number} score - Score value
+ * @param {string} userId - Optional user ID for authenticated users
  */
-async function addScore(name, score) {
+async function addScore(name, score, userId = null) {
     // Validate inputs
     if (!name || typeof name !== 'string') {
         throw new Error('Name is required and must be a string');
@@ -25,26 +26,49 @@ async function addScore(name, score) {
     }
 
     try {
-        const { data, error } = await supabase
-            .from('leaderboard')
-            .insert([
-                {
-                    name: name.trim(),
-                    score: score
-                }
-            ])
-            .select();
+        const scoreEntry = {
+            name: name.trim() || 'Anonymous', // Fallback for empty name
+            score: score
+        };
 
-        if (error) {
-            console.error('Supabase error:', error);
-            throw new Error(`Database error: ${error.message}`);
+        // Add user_id if provided (for authenticated users)
+        if (userId) {
+            scoreEntry.user_id = userId;
         }
 
-        console.log(`✓ Score saved to leaderboard: ${name} - ${score}`);
-        return data[0];
+        try {
+            // Try inserting with user_id first
+            const { data, error } = await supabase
+                .from('leaderboard')
+                .insert([scoreEntry])
+                .select();
+
+            if (error) throw error;
+
+            console.log(`✓ Score saved to leaderboard: ${name} - ${score}`);
+            return data[0];
+        } catch (insertError) {
+            // If error is about missing column user_id, retry without it
+            if (userId && insertError.message && insertError.message.includes('column "user_id" of relation "leaderboard" does not exist')) {
+                console.warn('user_id column missing in leaderboard table, retrying without it...');
+                delete scoreEntry.user_id;
+
+                const { data, error } = await supabase
+                    .from('leaderboard')
+                    .insert([scoreEntry])
+                    .select();
+
+                if (error) throw error;
+
+                console.log(`✓ Score saved (without user_id): ${name} - ${score}`);
+                return data[0];
+            }
+
+            throw insertError;
+        }
     } catch (error) {
         console.error('Error adding score:', error);
-        throw error;
+        throw new Error(`Database error: ${error.message}`);
     }
 }
 

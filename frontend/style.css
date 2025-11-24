@@ -31,6 +31,47 @@ body {
   margin: 0 auto;
 }
 
+.user-header {
+  background: var(--card-bg);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-greeting {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+#userDisplay {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.logout-btn {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-primary);
+}
+
+.logout-btn:hover {
+  border-color: var(--error-color);
+  color: var(--error-color);
+  transform: translateY(-2px);
+}
+
 header {
   background: var(--card-bg);
   padding: 1.5rem;

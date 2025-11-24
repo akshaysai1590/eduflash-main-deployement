@@ -22,7 +22,7 @@ INSERT INTO questions (topic, question, options, correct_answer, explanation) VA
 ('general', 'Who wrote "Romeo and Juliet"?', '["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"]', 1, 'William Shakespeare wrote Romeo and Juliet around 1594-1596.'),
 
 -- Science & Technology
-('general', 'What does DNA stand for?', '["Deoxyribonucleic Acid", "Digital Network Access", "Dynamic Nuclear Assembly", "Data Nucleotide Array"]', 0, 'DNA stands for Deoxyribonucleic Acid, which carries genetic information.'),
+('general', 'What d oes DNA stand for?', '["Deoxyribonucleic Acid", "Digital Network Access", "Dynamic Nuclear Assembly", "Data Nucleotide Array"]', 0, 'DNA stands for Deoxyribonucleic Acid, which carries genetic information.'),
 ('general', 'Who invented the telephone?', '["Thomas Edison", "Alexander Graham Bell", "Nikola Tesla", "Guglielmo Marconi"]', 1, 'Alexander Graham Bell is credited with inventing the telephone in 1876.'),
 ('general', 'What is the speed of light?', '["300,000 km/s", "150,000 km/s", "450,000 km/s", "600,000 km/s"]', 0, 'Light travels at approximately 300,000 kilometers per second in a vacuum.'),
 ('general', 'Which planet is known as the Red Planet?', '["Venus", "Jupiter", "Mars", "Saturn"]', 2, 'Mars is called the Red Planet due to iron oxide (rust) on its surface.'),

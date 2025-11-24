@@ -1,14 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EduFlash - Interactive Learning Quiz</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body>
   <div class="container">
+    <!-- User Header -->
+    <div class="user-header">
+      <span class="user-greeting">Welcome, <span id="userDisplay">...</span>!</span>
+      <button class="logout-btn" id="logoutBtn" title="Logout">
+        <span>🚪 Logout</span>
+      </button>
+    </div>
+
     <header>
       <div class="brand">
         <div class="logo">🎓</div>
@@ -93,6 +105,8 @@
     </footer>
   </div>
 
+  <script src="auth.js"></script>
   <script src="script.js"></script>
 </body>
+
 </html>

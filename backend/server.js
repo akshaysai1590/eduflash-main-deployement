@@ -5,10 +5,49 @@ const path = require('path');
 const explainProvider = require('./services/explainProvider');
 const questionService = require('./services/questionService');
 const leaderboardService = require('./services/leaderboardService');
+const { createClient } = require('@supabase/supabase-js');
+const authService = require('./services/authService');
 
 // Function to create and configure the Express app
 function createApp() {
   const app = express();
+
+  // Initialize Supabase client for auth verification
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+
+  // Authentication middleware to verify Supabase JWT
+  async function authenticateUser(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        console.error('Auth error:', error);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      // Attach user info to request
+      req.user = user;
+      req.userId = user.id;
+      // Prioritize username from metadata, then display_name, then email part
+      req.username = user.user_metadata?.username || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+
+      next();
+    } catch (error) {
+      console.error('Error verifying token:', error);
+      return res.status(401).json({ error: 'Authentication failed' });
+    }
+  }
 
   // Middleware
   // CORS configuration - allow all origins for flexibility
@@ -108,22 +147,100 @@ function createApp() {
     }
   });
 
-  // Leaderboard endpoints
-  app.post('/api/leaderboard', async (req, res) => {
+  // Authentication endpoints
+  app.post('/api/auth/signup', async (req, res) => {
     try {
-      const { name, score } = req.body;
+      const { email, password, displayName } = req.body;
 
-      if (!name || score === undefined) {
-        return res.status(400).json({ error: 'Missing name or score' });
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
       }
 
-      // Validate name
-      if (typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ error: 'Invalid name format' });
+      const result = await authService.signUp(email, password, displayName);
+      console.log(`✓ User signed up: ${email}`);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in /api/auth/signup:', error);
+
+      if (error.message.includes('already registered') || error.message.includes('already exists')) {
+        return res.status(409).json({ error: 'Email already registered' });
       }
 
-      if (name.length > 50) {
-        return res.status(400).json({ error: 'Name must be 50 characters or less' });
+      res.status(400).json({ error: error.message || 'Signup failed' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      const result = await authService.signIn(email, password);
+      console.log(`✓ User logged in: ${email}`);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in /api/auth/login:', error);
+
+      if (error.message.includes('Invalid') || error.message.includes('credentials')) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      res.status(400).json({ error: error.message || 'Login failed' });
+    }
+  });
+
+  app.post('/api/auth/logout', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+      if (token) {
+        await authService.signOut(token);
+      }
+
+      console.log('✓ User logged out');
+      res.json({ success: true, message: 'Logged out successfully' });
+    } catch (error) {
+      console.error('Error in /api/auth/logout:', error);
+      // Return success even if logout fails (client can clear session)
+      res.json({ success: true, message: 'Logged out' });
+    }
+  });
+
+  app.get('/api/auth/user', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No authorization token provided' });
+      }
+
+      const token = authHeader.split(' ')[1];
+      const user = await authService.getUserFromToken(token);
+
+      res.json({ user });
+    } catch (error) {
+      console.error('Error in /api/auth/user:', error);
+      res.status(401).json({ error: 'Invalid or expired token' });
+    }
+  });
+
+  // Leaderboard endpoints
+  app.post('/api/leaderboard', authenticateUser, async (req, res) => {
+    try {
+      const { score } = req.body;
+
+      // Get user info from authenticated request
+      const userId = req.userId;
+      const username = req.username;
+
+      if (score === undefined) {
+        return res.status(400).json({ error: 'Missing score' });
       }
 
       // Validate score
@@ -131,8 +248,9 @@ function createApp() {
         return res.status(400).json({ error: 'Invalid score value' });
       }
 
-      await leaderboardService.addScore(name.trim(), Math.floor(score));
-      console.log(`✓ Added score to leaderboard: ${name.trim()} - ${Math.floor(score)}`);
+      // Add score with authenticated user info
+      await leaderboardService.addScore(username, Math.floor(score), userId);
+      console.log(`✓ Added score to leaderboard: ${username} (${userId}) - ${Math.floor(score)}`);
 
       res.json({ success: true, message: 'Score added to leaderboard' });
     } catch (error) {
